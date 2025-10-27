@@ -6,36 +6,7 @@ from sender import Sender
 from receiver import Receiver
 from channel import channel_simulate
 from config import *
-# --- 1. Konfiguracja Globalna ---
-# PROB_LOSS = 0.15  # Prawdopodobieństwo utraty pakietu/ACK
-# PROB_ERROR = 0.10  # Prawdopodobieństwo błędu bitowego w pakiecie/ACK
-# TIMEOUT = 3.0  # Czas oczekiwania na ACK (w sekundach)
-# WINDOW_SIZE = 4  # Rozmiar okna (N)
-# SEQ_BITS = 3  # Liczba bitów na numer sekwencyjny (2^3 = 8 numerów)
-# MAX_SEQ = 2 ** SEQ_BITS  # Maksymalna liczba numerów sekwencyjnych (0 do 7)
-# TARGET_PACKETS = 15  # Cel: liczba pakietów do poprawnego przesłania
 
-
-# --- 2. Struktury Danych ---
-
-
-
-
-# --- 3. Moduł Kanału (Channel) ---
-
-
-
-# --- 4. Moduł Nadawcy (Sender) ---
-
-
-
-
-# --- 5. Moduł Odbiorcy (Receiver) ---
-
-
-
-
-# --- 6. Główna Symulacja ---
 
 def run_go_back_n_simulation():
     sender = Sender(WINDOW_SIZE, MAX_SEQ)
@@ -53,7 +24,7 @@ def run_go_back_n_simulation():
 
     while len(receiver.received_payload) < TARGET_PACKETS:
 
-        # --- Krok 1: Wysłanie nowych danych (jeśli okno nie jest pełne) ---
+        # Wysłanie nowych danych (jeśli okno nie jest pełne)
 
         # Sprawdzamy, czy w oknie jest jeszcze miejsce i czy są jeszcze dane do wysłania
         if sender._is_within_window(sender.next_seq_num) and sent_data_idx < TARGET_PACKETS:
@@ -73,7 +44,7 @@ def run_go_back_n_simulation():
                 # Natychmiastowa obsługa ramki DATA przez odbiornik
                 ack_from_receiver = receiver.receive_frame(ack_from_channel)
 
-        # --- Krok 2: Obsługa timeout'u i retransmisji ---
+        # Obsługa timeout'u i retransmisji
 
         if sender.is_timeout():
             # W GBN: Jeśli upłynął limit czasu, wracamy do Base i retransmitujemy od tego miejsca.
@@ -96,7 +67,7 @@ def run_go_back_n_simulation():
             total_retransmissions += retrans_count
             sender.start_timer()  # Uruchom timer ponownie
 
-        # --- Krok 3: Obsługa potwierdzeń (ACK) ---
+        # Krok 3: Obsługa potwierdzeń (ACK)
 
         # W prostym modelu ACK z KANAŁU jest przekazywane bezpośrednio do Nadawcy,
         # ale w realistycznym scenariuszu Nadawca musiałby odbierać z kanału.
