@@ -4,10 +4,7 @@ import random
 import time
 # Pamiętaj, aby zaimportować Frame, bo jej używasz w argumencie!
 from frame import Frame
-
-# Zmienne globalne muszą być dostępne lub przekazane
-PROB_LOSS = 0.15
-PROB_ERROR = 0.10
+from config import PROB_LOSS, PROB_ERROR
 
 
 def channel_simulate(frame: Frame):

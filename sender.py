@@ -1,9 +1,9 @@
 from frame import Frame
 from channel import channel_simulate
-import random
+from config import TIMEOUT
 import time
 
-TIMEOUT = 3.0  # Czas oczekiwania na ACK (w sekundach)
+
 class Sender:
     def __init__(self, window_size, max_seq):
         self.window_size = window_size
