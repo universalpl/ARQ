@@ -2,29 +2,31 @@
 
 import random
 import time
-# Pamiętaj, aby zaimportować Frame, bo jej używasz w argumencie!
+import copy
 from frame import Frame
 from config import PROB_LOSS, PROB_ERROR
+from colors import Colors
 
 
 def channel_simulate(frame: Frame):
-    """Symuluje kanał z utratą i błędami."""
-
+    """Symuluje kanał z utratą i błędami (BSC), bez modyfikowania oryginalnej ramki."""
     if frame is None:
-        return None  # Obsługa pustego wejścia
+        return None
 
-    # UWAGA: W symulacji GBN, Nadawca wywołuje channel_simulate.
-    # Aby Channel miał dostęp do stałych globalnych (PROB_LOSS, PROB_ERROR),
-    # muszą one być albo globalnie zdefiniowane, albo przekazane.
-    global PROB_LOSS, PROB_ERROR
+    sn = frame.seq_num
 
+    # Utrata
     if random.random() < PROB_LOSS:
-        print(f"  [KANAŁ]: ZGUBIONO ramkę {frame.type} o SN={frame.seq_num}")
-        return None  # Utrata (Losowe Gubienie)
+        print(f"{Colors.RED}  [KANAŁ]: ZGUBIONO ramkę {frame.type} o SN={sn}{Colors.RESET}")
+        return None
 
+    # Pracujemy na kopii, by nie psuć bufora nadawcy
+    tx = copy.deepcopy(frame)
+
+    # Błąd bitowy
     if random.random() < PROB_ERROR:
-        print(f"  [KANAŁ]: BŁĄD BITOWY w ramce {frame.type} o SN={frame.seq_num}. Zepsuto CRC.")
-        frame.corrupt_frame()  # Zmiana (Losowe Zmiany)
+        print(f"{Colors.for_sn(sn)}  [KANAŁ]: BŁĄD BITOWY w ramce {tx.type} o SN={sn}. Zepsuto CRC.{Colors.RESET}")
+        tx.corrupt_frame()
 
-    time.sleep(random.uniform(0.1, 0.5))  # Symulacja opóźnienia
-    return frame
+    time.sleep(random.uniform(0.01, 0.05))  # szybsza symulacja
+    return tx

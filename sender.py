@@ -1,6 +1,8 @@
+# sender.py
 from frame import Frame
 from channel import channel_simulate
 from config import TIMEOUT
+from colors import Colors
 import time
 
 
@@ -8,56 +10,89 @@ class Sender:
     def __init__(self, window_size, max_seq):
         self.window_size = window_size
         self.max_seq = max_seq
-        self.base = 0  # Baza okna (najstarszy pakiet, na który czekamy)
-        self.next_seq_num = 0  # Numer sekwencyjny następnego pakietu
-        self.buffer = {}  # Bufor retransmisji {SN: Frame}
-        self.timer_start = None  # Czas startu głównego timera
+        self.base = 0
+        self.next_seq_num = 0
+        self.buffer = {}
+        self.timer_start = None
 
+    # ---- Pomocnicze ----
     def _is_within_window(self, seq_num):
-        """Sprawdza, czy numer sekwencyjny mieści się w buforze okna."""
         return (seq_num - self.base) % self.max_seq < self.window_size
 
-    def send_frame(self, frame):
-        """Symuluje wysłanie ramki do kanału."""
-        print(f"[NADAJNIK]: Wysyłam {frame}")
-        return channel_simulate(frame)
-
-    def process_data(self, data_packet):
-        """Przygotowuje i buforuje dane do wysłania."""
-        frame = Frame('DATA', self.next_seq_num, data_packet)
-        if self._is_within_window(self.next_seq_num):
-            self.buffer[self.next_seq_num] = frame
-            self.next_seq_num = (self.next_seq_num + 1) % self.max_seq
-            return frame
-        else:
-            # Okno jest pełne - musimy czekać.
-            # W symulacji zakładamy, że dane są dodawane tylko, gdy jest miejsce.
-            return None
-
     def start_timer(self):
-        """Uruchamia timer dla najstarszego pakietu w oknie (Base)."""
-        self.timer_start = time.time()
-        print(f"[NADAJNIK]: STARTUJĘ timer dla Base={self.base}")
+        if self.timer_start is None:
+            self.timer_start = time.time()
+            print(f"{Colors.GRAY}[NADAJNIK]: STARTUJĘ timer dla Base={self.base}{Colors.RESET}")
+
+    def stop_timer(self):
+        if self.timer_start is not None:
+            self.timer_start = None
+            print(f"{Colors.GRAY}[NADAJNIK]: Okno puste – STOP timer.{Colors.RESET}")
 
     def is_timeout(self):
-        """Sprawdza, czy upłynął limit czasu."""
-        if self.timer_start is not None and time.time() - self.timer_start > TIMEOUT:
-            print(f"[NADAJNIK]: TIMEOUT! dla Base={self.base}")
-            self.timer_start = None  # Zresetuj, aby wywołać retransmisję
+        if self.timer_start is not None and (time.time() - self.timer_start) > TIMEOUT:
+            print(f"{Colors.GRAY}[NADAJNIK]: TIMEOUT! dla Base={self.base}{Colors.RESET}")
+            self.timer_start = None
             return True
         return False
 
-    def retransmit_window(self, channel):
-        """Retransmituje wszystkie pakiety z aktualnego okna (Go-Back-N)."""
+    # ---- Wysyłanie ----
+    def send_frame(self, frame: Frame):
+        sn = frame.seq_num
+        print(f"{Colors.for_sn(sn)}[NADAJNIK]: Wysyłam {frame}{Colors.RESET}")
+        return channel_simulate(frame)
+
+    def process_data(self, data_packet):
+        if not self._is_within_window(self.next_seq_num):
+            return None
+        frame = Frame('DATA', self.next_seq_num, data_packet)
+        self.buffer[self.next_seq_num] = frame
+        self.next_seq_num = (self.next_seq_num + 1) % self.max_seq
+        return frame
+
+    # ---- Obsługa ACK ----
+    def on_ack(self, ack_num):
+        """
+        ACK kumulacyjny: ACK=k oznacza „mam wszystko do k-1”.
+        Kolorujemy wg powiązanej data-ramki: SN=(k-1) mod MAX_SEQ.
+        """
+        moved = 0
+        related_sn = (ack_num - 1) % self.max_seq
+        color = Colors.for_sn(related_sn)
+
+        while self.base != ack_num:
+            print(f"{color}[NADAJNIK]: Otrzymano POPRAWNE ACK SN={ack_num}. "
+                  f"Przesuwam BASE z {self.base} do {ack_num}.{Colors.RESET}")
+            self.buffer.pop(self.base, None)
+            self.base = (self.base + 1) % self.max_seq
+            moved += 1
+
+        if moved > 0:
+            if self.base == self.next_seq_num:
+                self.stop_timer()
+            else:
+                self.start_timer()
+        return moved
+
+    # ---- Retransmisja ----
+    def retransmit_window(self, receiver):
+        """
+        GBN: retransmituje wszystkie ramki [base, next_seq_num) i od razu przekazuje do odbiornika.
+        """
         retransmitted_count = 0
         current_seq = self.base
 
         while current_seq != self.next_seq_num:
             frame = self.buffer.get(current_seq)
             if frame:
-                channel.send(frame)
+                _out = self.send_frame(frame)
                 retransmitted_count += 1
+                ack = receiver.receive_frame(_out)
+                if ack is not None and not ack.is_corrupt():
+                    self.on_ack(ack.seq_num)
             current_seq = (current_seq + 1) % self.max_seq
 
-        self.start_timer()  # Uruchom timer ponownie
+        if self.base != self.next_seq_num and self.timer_start is None:
+            self.start_timer()
+
         return retransmitted_count
