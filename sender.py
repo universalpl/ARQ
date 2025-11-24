@@ -40,7 +40,11 @@ class Sender:
     def send_frame(self, frame: Frame):
         sn = frame.seq_num
         print(f"{Colors.for_sn(sn)}[NADAJNIK]: Wysyłam {frame}{Colors.RESET}")
-        return channel_simulate(frame)
+
+        # ZMIANA: Serializacja do bitów (bajtów) przed wysłaniem!
+        frame_bytes = frame.to_bytes()
+
+        return channel_simulate(frame_bytes)
 
     def process_data(self, data_packet):
         if not self._is_within_window(self.next_seq_num):
@@ -76,20 +80,26 @@ class Sender:
 
     # ---- Retransmisja ----
     def retransmit_window(self, receiver):
-        """
-        GBN: retransmituje wszystkie ramki [base, next_seq_num) i od razu przekazuje do odbiornika.
-        """
         retransmitted_count = 0
         current_seq = self.base
 
         while current_seq != self.next_seq_num:
             frame = self.buffer.get(current_seq)
             if frame:
-                _out = self.send_frame(frame)
+                # Wysyłamy (send_frame zamienia na bajty wewnątrz)
+                raw_bytes_out = self.send_frame(frame)
                 retransmitted_count += 1
-                ack = receiver.receive_frame(_out)
-                if ack is not None and not ack.is_corrupt():
-                    self.on_ack(ack.seq_num)
+
+                # Odbieramy BAJTY (ACK) z kanału (przez receivera)
+                ack_bytes = receiver.receive_frame(raw_bytes_out)
+
+                # ZMIANA: Deserializacja bajtów ACK
+                if ack_bytes is not None:
+                    ack_frame = Frame.from_bytes(ack_bytes)  # Odczarowanie!
+
+                    if not ack_frame.is_corrupt():
+                        self.on_ack(ack_frame.seq_num)
+
             current_seq = (current_seq + 1) % self.max_seq
 
         if self.base != self.next_seq_num and self.timer_start is None:
