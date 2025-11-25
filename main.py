@@ -1,81 +1,103 @@
-# main.py
 import time
-
+import config
 from sender import Sender
 from receiver import Receiver
-from frame import Frame   # Potrzebne do deserializacji!
-from config import *
-# channel_simulate nie jest tu bezpośrednio potrzebny, jeśli używamy go przez sender/receiver
+from frame import Frame
+from colors import Colors
+import channel
 
-def run_go_back_n_simulation():
-    sender = Sender(WINDOW_SIZE, MAX_SEQ)
-    receiver = Receiver(MAX_SEQ)
 
-    data_to_send = [f"Pakiet_{i + 1}" for i in range(TARGET_PACKETS)]
+def run_go_back_n_simulation(override_p=None, override_r=None):
+    """
+    Orkiestrator symulacji protokołu Go-Back-N.
+
+    Funkcja ta zarządza przebiegiem eksperymentu, inicjalizując komponenty (Nadajnik, Odbiornik, Kanał)
+    i wykonując pętlę zdarzeń (Event Loop) do momentu przesłania zadanej liczby pakietów.
+
+    Kluczowe etapy w pętli:
+    1. **Transmisja:** Pobranie danych, utworzenie ramki i wysłanie jej (jeśli okno pozwala).
+    2. **Watchdog:** Zabezpieczenie przed zakleszczeniem (Deadlock) w przypadku utraty synchronizacji timera.
+    3. **Obsługa Timeoutu:** Wywołanie procedury `retransmit_window` w przypadku braku ACK.
+    4. **Odbiór ACK:** Przetworzenie odpowiedzi od odbiornika i przesunięcie okna.
+
+    Args:
+        override_p (float, optional): Nadpisuje prawdopodobieństwo przejścia G->B (start burzy).
+        override_r (float, optional): Nadpisuje prawdopodobieństwo przejścia B->G (koniec burzy).
+
+    Returns:
+        float: Współczynnik wydajności (Efficiency) zdefiniowany jako iloraz liczby pakietów
+               użytecznych do całkowitej liczby transmisji (w tym retransmisji).
+    """
+
+    if override_p is not None:
+        config.GILBERT_P = override_p
+    if override_r is not None:
+        config.GILBERT_R = override_r
+
+    sender = Sender(config.WINDOW_SIZE, config.MAX_SEQ)
+    receiver = Receiver(config.MAX_SEQ)
+
+    data_to_send = [f"Pakiet_{i + 1}" for i in range(config.TARGET_PACKETS)]
     sent_data_idx = 0
-    total_transmissions = 0
-    total_retransmissions = 0
 
-    print("--- START SYMULACJI GO-BACK-N ARQ (BITSTREAM + GILBERT) ---")
-    print(f"Parametry: N={WINDOW_SIZE}, Gilbert P={GILBERT_P}, Gilbert R={GILBERT_R}")
+    total_transmissions = 0
+    retransmissions = 0
+
+    print(f"\n{Colors.GRAY}--- START SYMULACJI (P={config.GILBERT_P}, R={config.GILBERT_R}) ---{Colors.RESET}")
 
     start_time = time.time()
 
-    while len(receiver.received_payload) < TARGET_PACKETS:
-        # Zmienna na bajty ACK z kanału
+    while len(receiver.received_payload) < config.TARGET_PACKETS:
+        # Krótki sleep zapobiega zużyciu 100% CPU w pętli oczekiwania (Busy Waiting)
+        time.sleep(0.001)
+
         ack_bytes_from_receiver = None
 
-        # 1) Wysyłanie nowych danych, jeśli jest miejsce w oknie
-        if sender._is_within_window(sender.next_seq_num) and sent_data_idx < TARGET_PACKETS:
+        # A) Nadajnik: Wysyłanie nowych danych (Flow Control)
+        if sender._is_within_window(sender.next_seq_num) and sent_data_idx < config.TARGET_PACKETS:
             data = data_to_send[sent_data_idx]
-            frame_to_send = sender.process_data(data)
+            frame_obj = sender.process_data(data)
 
-            if frame_to_send:
-                if sender.base == frame_to_send.seq_num:
-                    sender.start_timer()
+            raw_bytes_out = channel.channel_simulate(frame_obj.to_bytes())
 
-                # Sender.send_frame teraz zwraca BAJTY (zniekształcone przez kanał)
-                raw_data_bytes = sender.send_frame(frame_to_send)
-                total_transmissions += 1
-                sent_data_idx += 1
+            sent_data_idx += 1
+            total_transmissions += 1
 
-                # Odbiornik przyjmuje bajty i zwraca bajty (ACK zniekształcone przez kanał)
-                ack_bytes_from_receiver = receiver.receive_frame(raw_data_bytes)
+            ack_bytes_from_receiver = receiver.receive_frame(raw_bytes_out)
 
-        # 2) Timeout → retransmisja całego okna
-        # (Wewnątrz tej metody sender.py też musi deserializować ACK - patrz pkt 2 wyżej)
+        # Watchdog: Zapobiega sytuacji, gdzie okno jest pełne, ale timer nie działa (np. błąd logiczny).
+        if sender.base != sender.next_seq_num and sender.timer_start is None:
+            sender.start_timer()
+
+        # B) Nadajnik: Obsługa Timeout (ARQ Mechanism)
         if sender.is_timeout():
-            retrans_count = sender.retransmit_window(receiver)
-            total_transmissions += retrans_count
-            total_retransmissions += retrans_count
+            added_transmissions = sender.retransmit_window(receiver)
+            total_transmissions += added_transmissions
+            retransmissions += added_transmissions
 
-        # 3) Obsługa poprawnego ACK (z normalnego trybu)
-        # Musimy sprawdzić, czy dostaliśmy bajty
+            sender.stop_timer()
+            sender.start_timer()
+
+        # C) Nadajnik: Obsługa ACK
         if ack_bytes_from_receiver is not None:
-            # ZMIANA: Deserializacja! Zamieniamy bajty z powrotem na obiekt Frame
             ack_frame = Frame.from_bytes(ack_bytes_from_receiver)
-
             if not ack_frame.is_corrupt():
                 sender.on_ack(ack_frame.seq_num)
-            else:
-                print("[NADAJNIK]: Otrzymano USZKODZONE ACK (CRC błąd). IGNORUJĘ.")
 
-        # 4) Zatrzymanie timera po ostatnim pakiecie
-        if sender.base == sender.next_seq_num and sent_data_idx >= TARGET_PACKETS:
+        # D) Zarządzanie timerem
+        if sender.base == sender.next_seq_num and sent_data_idx >= config.TARGET_PACKETS:
             sender.stop_timer()
 
-         # Brak time.sleep() tutaj, bo sleep jest już wewnątrz channel.py
-
     end_time = time.time()
+    duration = end_time - start_time
 
-    # --- PODSUMOWANIE ---
-    print("\n--- PODSUMOWANIE SYMULACJI ---")
-    print(f"Pakiety dostarczone: {len(receiver.received_payload)}/{TARGET_PACKETS}")
-    print(f"Całkowity czas: {end_time - start_time:.2f} s")
-    print(f"Całkowita liczba transmisji (DATA): {total_transmissions}")
-    print(f"Liczba retransmisji (DATA): {total_retransmissions}")
-    efficiency = TARGET_PACKETS / total_transmissions if total_transmissions else 0.0
-    print(f"Wydajność: {efficiency:.2f}")
+    efficiency = config.TARGET_PACKETS / total_transmissions if total_transmissions > 0 else 0
+
+    print(f"{Colors.GRAY}--- KONIEC PRZEBIEGU ---")
+    print(f"Czas: {duration:.2f}s | Retransmisje: {retransmissions}")
+    print(f"Wydajność: {efficiency:.2f}{Colors.RESET}")
+
+    return efficiency
 
 
 if __name__ == "__main__":
