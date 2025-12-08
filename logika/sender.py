@@ -68,7 +68,7 @@ class Sender:
     def send_frame(self, frame):
         """Metoda pomocnicza serializująca ramkę i przekazująca ją do symulatora kanału."""
         color = Colors.for_sn(frame.seq_num)
-        # print(f"{color}[NADAJNIK]: Wysyłam [DATA: SN={frame.seq_num}, Pkt={frame.payload}]{Colors.RESET}")
+        print(f"{color}[NADAJNIK]: Wysyłam [DATA: SN={frame.seq_num}]{Colors.RESET}")
         return channel_simulate(frame.to_bytes())
 
     def process_data(self, data):
