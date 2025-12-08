@@ -8,27 +8,6 @@ import channel
 
 
 def run_go_back_n_simulation(override_p=None, override_r=None):
-    """
-    Orkiestrator symulacji protokołu Go-Back-N.
-
-    Funkcja ta zarządza przebiegiem eksperymentu, inicjalizując komponenty (Nadajnik, Odbiornik, Kanał)
-    i wykonując pętlę zdarzeń (Event Loop) do momentu przesłania zadanej liczby pakietów.
-
-    Kluczowe etapy w pętli:
-    1. **Transmisja:** Pobranie danych, utworzenie ramki i wysłanie jej (jeśli okno pozwala).
-    2. **Watchdog:** Zabezpieczenie przed zakleszczeniem (Deadlock) w przypadku utraty synchronizacji timera.
-    3. **Obsługa Timeoutu:** Wywołanie procedury `retransmit_window` w przypadku braku ACK.
-    4. **Odbiór ACK:** Przetworzenie odpowiedzi od odbiornika i przesunięcie okna.
-
-    Args:
-        override_p (float, optional): Nadpisuje prawdopodobieństwo przejścia G->B (start burzy).
-        override_r (float, optional): Nadpisuje prawdopodobieństwo przejścia B->G (koniec burzy).
-
-    Returns:
-        float: Współczynnik wydajności (Efficiency) zdefiniowany jako iloraz liczby pakietów
-               użytecznych do całkowitej liczby transmisji (w tym retransmisji).
-    """
-
     if override_p is not None:
         config.GILBERT_P = override_p
     if override_r is not None:
@@ -48,12 +27,11 @@ def run_go_back_n_simulation(override_p=None, override_r=None):
     start_time = time.time()
 
     while len(receiver.received_payload) < config.TARGET_PACKETS:
-        # Krótki sleep zapobiega zużyciu 100% CPU w pętli oczekiwania (Busy Waiting)
         time.sleep(0.001)
 
         ack_bytes_from_receiver = None
 
-        # A) Nadajnik: Wysyłanie nowych danych (Flow Control)
+        # A) Nadajnik: Wysyłanie nowych danych
         if sender._is_within_window(sender.next_seq_num) and sent_data_idx < config.TARGET_PACKETS:
             data = data_to_send[sent_data_idx]
             frame_obj = sender.process_data(data)
@@ -65,12 +43,16 @@ def run_go_back_n_simulation(override_p=None, override_r=None):
 
             ack_bytes_from_receiver = receiver.receive_frame(raw_bytes_out)
 
-        # Watchdog: Zapobiega sytuacji, gdzie okno jest pełne, ale timer nie działa (np. błąd logiczny).
+        # Watchdog: Log informujący o restarcie
         if sender.base != sender.next_seq_num and sender.timer_start is None:
+            print(f"{Colors.GRAY}[INFO] Watchdog restartuje timer (brak postępu)...{Colors.RESET}")
             sender.start_timer()
 
-        # B) Nadajnik: Obsługa Timeout (ARQ Mechanism)
+        # B) Nadajnik: Obsługa Timeout
         if sender.is_timeout():
+            # Log informujący o przyczynie zatrzymania
+            print(f"{Colors.RED}[STOP] Timeout na pakiecie SN={sender.base}. Brak ACK. Retransmisja...{Colors.RESET}")
+
             added_transmissions = sender.retransmit_window(receiver)
             total_transmissions += added_transmissions
             retransmissions += added_transmissions

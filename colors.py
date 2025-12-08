@@ -3,21 +3,14 @@ Moduł odpowiedzialny za kolorowanie wyjścia w konsoli (ANSI codes).
 Ułatwia wizualną analizę logów symulacji.
 """
 
+# colors.py
 try:
     import colorama
-
     colorama.just_fix_windows_console()
 except Exception:
     pass
 
-
 class Colors:
-    """
-    Kontener na kody kolorów ANSI.
-
-    Attributes:
-        FRAME_COLORS (list): Lista kodów kolorów przypisanych do kolejnych numerów sekwencyjnych (SN).
-    """
     RESET = "\033[0m"
 
     FRAME_COLORS = [
@@ -33,9 +26,9 @@ class Colors:
 
     GRAY = "\033[90m"
     RED = "\033[91m"
+    MAGENTA = "\033[95m" # <--- DODANO (Dla modelu Gilberta)
 
     @staticmethod
     def for_sn(sn):
-        """Zwraca kod koloru przypisany do danego numeru sekwencyjnego (modulo długość listy)."""
         idx = sn % len(Colors.FRAME_COLORS)
         return Colors.FRAME_COLORS[idx]
