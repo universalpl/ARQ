@@ -22,7 +22,7 @@ class GilbertChannel:
             return None
 
         # Symulacja opóźnienia fizycznego
-        time.sleep(random.uniform(0.01, 0.05))
+       # time.sleep(0.001)
 
         # 1. PODEJRZYJ BITY NA WEJŚCIU (Przed zmianami)
         # Warto to robić tylko przy małej liczbie pakietów, bo zaśmieci konsolę

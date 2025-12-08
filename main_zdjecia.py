@@ -12,13 +12,14 @@ import config
 from gui.live_preview import LivePreviewTk  # plik dodany wyżej
 
 # Ustawienia specyficzne dla kopiowania pliku (NIE ruszamy config.py z protokołem)
-CHUNK_SIZE = 2048
+CHUNK_SIZE = 4096
 SRC_FILE = "input/kot.jpg"
 DEST_FILE = "output/kot_copy.jpg"
 REFRESH_EVERY_CHUNKS = 1
 
 
 def _read_file_chunks(path, chunk_size):
+
     """Czyta plik binarnie i zwraca kolejne chunki bajtów."""
     with open(path, "rb") as f:
         while True:
