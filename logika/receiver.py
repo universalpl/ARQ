@@ -1,6 +1,6 @@
-from frame import Frame
-from channel import channel_simulate
-from colors import Colors
+from logika.frame import Frame
+from logika.channel import channel_simulate
+from logika.colors import Colors
 
 
 class Receiver:

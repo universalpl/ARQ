@@ -10,7 +10,7 @@ i weryfikuje wydajność protokołu.
 # tests.py
 import main
 import config
-from colors import Colors
+from logika.colors import Colors
 
 
 def run_tests():

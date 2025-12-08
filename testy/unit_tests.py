@@ -9,12 +9,10 @@ Weryfikuje poprawność działania poszczególnych komponentów systemu w izolac
 
 # unit_tests.py
 import unittest
-import struct
-from frame import Frame
-from sender import Sender
-from receiver import Receiver  # <--- POPRAWKA 1: Dodano brakujący import
-from channel import GilbertChannel
-import config
+from logika.frame import Frame
+from logika.sender import Sender
+from logika.receiver import Receiver  # <--- POPRAWKA 1: Dodano brakujący import
+from logika.channel import GilbertChannel
 
 
 class TestGoBackN(unittest.TestCase):

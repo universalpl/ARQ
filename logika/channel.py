@@ -2,7 +2,7 @@
 import random
 import time
 import config
-from colors import Colors
+from logika.colors import Colors
 
 # Funkcja pomocnicza do wyświetlania bitów
 def bits_to_string(data_bytes):

@@ -2,14 +2,14 @@ import os
 import time
 import base64
 
-from sender import Sender
-from receiver import Receiver
-from frame import Frame
-from colors import Colors
-import channel
+from logika.sender import Sender
+from logika.receiver import Receiver
+from logika.frame import Frame
+from logika.colors import Colors
+from logika import channel
 import config
 
-from live_preview import LivePreviewTk  # plik dodany wyżej
+from gui.live_preview import LivePreviewTk  # plik dodany wyżej
 
 # Ustawienia specyficzne dla kopiowania pliku (NIE ruszamy config.py z protokołem)
 CHUNK_SIZE = 2048

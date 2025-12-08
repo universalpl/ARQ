@@ -1,10 +1,10 @@
 import time
 import config
-from sender import Sender
-from receiver import Receiver
-from frame import Frame
-from colors import Colors
-import channel
+from logika.sender import Sender
+from logika.receiver import Receiver
+from logika.frame import Frame
+from logika.colors import Colors
+from logika import channel
 
 
 def run_go_back_n_simulation(override_p=None, override_r=None):

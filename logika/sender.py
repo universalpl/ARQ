@@ -1,7 +1,7 @@
-from frame import Frame
-from channel import channel_simulate
+from logika.frame import Frame
+from logika.channel import channel_simulate
 from config import TIMEOUT
-from colors import Colors
+from logika.colors import Colors
 import time
 
 
