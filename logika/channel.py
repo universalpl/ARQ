@@ -72,6 +72,36 @@ class GilbertChannel:
 
         return corrupted_data
 
+
+    def propagate_bsc(self, data_bytes: bytearray, error_prob: float) -> bytearray:
+        """
+        Prosta wersja Binary Symmetric Channel (BSC) — używana w testach CRC.
+        Nie ma stanów Gilberta, nie ma logów — tylko losowe flipy bitów.
+        """
+        if data_bytes is None:
+            return None
+
+        corrupted = bytearray(data_bytes)
+
+        for i in range(len(corrupted)):
+            val = corrupted[i]
+            new_val = 0
+
+            for bit_pos in range(8):
+                bit = (val >> bit_pos) & 1
+
+                # Bernoulli(p): zmieniamy bit z prawdopodobieństwem error_prob
+                if random.random() < error_prob:
+                    bit ^= 1
+
+                new_val |= (bit << bit_pos)
+
+            corrupted[i] = new_val
+
+        return corrupted
+
+
+
 # Instancja globalna kanału
 global_channel = GilbertChannel()
 
