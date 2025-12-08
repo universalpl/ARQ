@@ -9,7 +9,7 @@ Dokumentacja Symulacji ARQ
 
 Wersja systemu: |release|
 
-Witaj w dokumentacji projektu z roku 2067! Poniżej znajdziesz opis modułów.
+Witaj w dokumentacji projektu z roku 2100! Poniżej znajdziesz opis modułów.
 
 .. toctree::
    :maxdepth: 2
