@@ -2,20 +2,24 @@
 
 # --- Konfiguracja Modelu Gilberta-Elliotta ---
 
+# P: Szansa wejścia w burzę (na bit).
+# Zmniejszamy, żeby wchodził rzadziej.
+GILBERT_P = 0.00001
 
-# P: Szansa wejścia w burzę.
-GILBERT_P = 0.00005
 # R: Szansa wyjścia z burzy.
-GILBERT_R = 0.1
-# K: Błędy w stanie Dobrym.
-GILBERT_K = 0.000005
-# H: Błędy w stanie Złym.
-GILBERT_H = 0.005
+# ZWIĘKSZAMY! 0.1 oznacza, że średnio burza trwa 10 bitów.
+# Poprzednio miałeś małe R, co oznaczało burzę trwającą setki bitów (całe ramki).
+GILBERT_R = 0.2
 
+# K: Błędy w stanie Dobrym (szum tła).
+GILBERT_K = 0.00001
+
+# H: Błędy w stanie Złym (intensywność burzy).
+# Zmniejszamy trochę, żeby dać szansę na przeżycie nagłówka
+GILBERT_H = 0.30
 
 # --- Reszta ---
-# Timeout 0.6s jest OK, jeśli time.sleep w kanale to 0.01-0.05s.
-TIMEOUT = 0.4       # Zwiększyłbym lekko dla bezpieczeństwa
+TIMEOUT = 1.0
 WINDOW_SIZE = 4
 SEQ_BITS = 3
 MAX_SEQ = 2 ** SEQ_BITS
