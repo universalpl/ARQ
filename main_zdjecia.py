@@ -1,6 +1,7 @@
 import os
 import time
 import base64
+import matplotlib.pyplot as plt
 
 from logika.sender import Sender
 from logika.receiver import Receiver
@@ -20,6 +21,7 @@ CHUNK_SIZE = 512
 SRC_FILE = "input/kot.jpg"
 DEST_FILE = "output/kot_copy.jpg"
 REFRESH_EVERY_CHUNKS = 1
+OUTPUT_DIR = "output"
 
 
 # ───────────────────────────────────────────
@@ -42,7 +44,7 @@ def _ensure_parent_dir(path):
 
 
 # ───────────────────────────────────────────
-#   GŁÓWNA SYMULACJA (TRYB NORMALNY + TESTOWY)
+#   GŁÓWNA SYMULACJA
 # ───────────────────────────────────────────
 
 def run_file_copy_over_gbn(
@@ -96,6 +98,9 @@ def run_file_copy_over_gbn(
     total_transmissions = 0
     retransmissions = 0
 
+    # ───── HISTOGRAM: ile razy wysłano daną ramkę ─────
+    tx_count = {}   # seq_num -> count
+
     print(
         f"\n{Colors.GRAY}"
         f"--- START FOTO-TRANSMISJI "
@@ -110,10 +115,13 @@ def run_file_copy_over_gbn(
         time.sleep(0.001)
         ack_bytes_from_receiver = None
 
-        # A) Nadajnik – wysyłanie
+        # A) Normalne wysyłanie
         if sender._is_within_window(sender.next_seq_num) and sent_data_idx < total_chunks:
             data = data_to_send[sent_data_idx]
             frame_obj = sender.process_data(data)
+
+            sn = frame_obj.seq_num
+            tx_count[sn] = tx_count.get(sn, 0) + 1
 
             raw_bytes_out = channel.channel_simulate(frame_obj.to_bytes())
 
@@ -125,9 +133,15 @@ def run_file_copy_over_gbn(
         if sender.base != sender.next_seq_num and sender.timer_start is None:
             sender.start_timer()
 
-        # C) Timeout
+        # C) Timeout → retransmisje
         if sender.is_timeout():
-            added = sender.retransmit_window(receiver)
+            frames = sender.retransmit_window(receiver)
+
+            for f in frames:
+                sn = f.seq_num
+                tx_count[sn] = tx_count.get(sn, 0) + 1
+
+            added = len(frames)
             total_transmissions += added
             retransmissions += added
             sender.stop_timer()
@@ -168,11 +182,54 @@ def run_file_copy_over_gbn(
         f"Wydajność: {efficiency:.2f}"
     )
 
+    # ───── BUDOWA HISTOGRAMU ─────
+    hist = {1: 0, 2: 0, 3: 0, 4: 0, "5+": 0}
+
+    for cnt in tx_count.values():
+        if cnt >= 5:
+            hist["5+"] += 1
+        else:
+            hist[cnt] += 1
+
+    print("\nHistogram liczby wysłań ramki:")
+    for k in [1, 2, 3, 4, "5+"]:
+        print(f"{k}: {hist[k]}")
+
+    # ───── ZAPIS HISTOGRAMU DO output/ ─────
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+    # CSV
+    csv_path = os.path.join(OUTPUT_DIR, "histogram_transmisji.csv")
+    with open(csv_path, "w") as f:
+        f.write("liczba_wyslan,liczba_ramek\n")
+        for k in [1, 2, 3, 4, "5+"]:
+            f.write(f"{k},{hist[k]}\n")
+
+    # Wykres
+    labels = ["1", "2", "3", "4", "5+"]
+    values = [hist[1], hist[2], hist[3], hist[4], hist["5+"]]
+
+    plt.figure()
+    plt.bar(labels, values)
+    plt.xlabel("Liczba wysłań ramki")
+    plt.ylabel("Liczba ramek")
+    plt.title("Histogram retransmisji ramek (GBN)")
+    plt.tight_layout()
+
+    plot_path = os.path.join(OUTPUT_DIR, "histogram_transmisji.png")
+    plt.savefig(plot_path)
+    plt.close()
+
+    print(f"\nHistogram zapisany do:")
+    print(f"- {csv_path}")
+    print(f"- {plot_path}")
+
     if return_stats:
         return {
             "time": duration,
             "retransmissions": retransmissions,
-            "efficiency": efficiency
+            "efficiency": efficiency,
+            "histogram": hist
         }
 
 
