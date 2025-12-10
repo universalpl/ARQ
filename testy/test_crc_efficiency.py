@@ -1,4 +1,3 @@
-# test_crc_efficiency.py
 import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
@@ -8,59 +7,118 @@ from logika.channel import global_channel
 import random
 import zlib
 import csv
-import matplotlib.pyplot as plt
+import base64
+
+
+# ───────────────────────────────────────────
+#   KONFIGURACJA ŚCIEŻEK
+# ───────────────────────────────────────────
 
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "testy_output")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
+# Poprawna ścieżka do obrazu — jeden katalog wyżej niż testy/
+SRC_FILE = os.path.join(
+    os.path.dirname(os.path.dirname(__file__)),
+    "input",
+    "kot.jpg"
+)
 
-# =====================================================================
-#  TEST BSC (druk + zwracanie wyników do tabeli i wykresu)
-# =====================================================================
-def run_detection_test(iterations=10000, mode='BSC', prob=0.01):
+CHUNK_SIZE = 512
+
+
+# ───────────────────────────────────────────
+#   WCZYTYWANIE OBRAZU I DZIELENIE NA CHUNKI
+# ───────────────────────────────────────────
+def load_image_chunks():
+    """
+    Wczytuje plik obrazu wykorzystywany w symulacji i dzieli go
+    na fragmenty po CHUNK_SIZE bajtów. Każdy fragment jest później
+    kodowany base64 — identycznie jak podczas transmisji w main_zdjecia.py.
+    """
+    with open(SRC_FILE, "rb") as f:
+        raw = f.read()
+
+    chunks = []
+    for i in range(0, len(raw), CHUNK_SIZE):
+        fragment = raw[i:i+CHUNK_SIZE]
+        b64 = base64.b64encode(fragment).decode("ascii")
+        chunks.append(b64)
+
+    return chunks
+
+
+# ───────────────────────────────────────────
+#   GŁÓWNY TEST DETEKCJI CRC NA REALNYCH DANYCH
+# ───────────────────────────────────────────
+def run_detection_test(iterations=20, mode='BSC', prob=0.01):
+    """
+    Testuje skuteczność algorytmu CRC-32 na rzeczywistych danych obrazu.
+    Każda ramka jest uszkadzana wiele razy przez kanał błędów, aby uzyskać
+    stabilną statystykę (iterations ≈ 20).
+
+    Mierzymy:
+      • ile ramek zostało uszkodzonych fizycznie,
+      • ile z nich CRC wykryło,
+      • ile CRC NIE wykryło,
+      • niezawodność kanału: (ramki nieuszkodzone / wszystkie),
+      • skuteczność CRC.
+    """
     total_frames = 0
     corrupted_physically = 0
     detected_errors = 0
     undetected_errors = 0
 
-    print(f"\n--- TEST: {mode} (Prob/Force={prob:.6f}) | Próbek: {iterations} ---")
+    print(f"\n--- TEST: {mode} (p={prob:.6f}) | Powtórzeń: {iterations} ---")
 
-    original_payload = "TestData_1234567890" * 5
-    original_frame = Frame('DATA', 1, original_payload)
-    original_bytes = original_frame.to_bytes()
+    payloads = load_image_chunks()
+
+    frames_bytes = [
+        Frame('DATA', 1, payload).to_bytes()
+        for payload in payloads
+    ]
 
     for _ in range(iterations):
-        total_frames += 1
+        for original in frames_bytes:
+            total_frames += 1
 
-        if mode == 'BSC':
-            received_bytes = global_channel.propagate_bsc(original_bytes, prob)
-        else:
-            config.GILBERT_H = prob
-            config.GILBERT_P = 0.05
-            config.GILBERT_R = 0.1
-            received_bytes = global_channel.propagate(original_bytes)
+            # SZUM KANAŁOWY
+            if mode == 'BSC':
+                received = global_channel.propagate_bsc(original, prob)
+            else:  # Model Gilberta
+                config.GILBERT_H = prob
+                config.GILBERT_P = 0.05
+                config.GILBERT_R = 0.1
+                received = global_channel.propagate(original)
 
-        if received_bytes != original_bytes:
-            corrupted_physically += 1
-            decoded = Frame.from_bytes(received_bytes)
+            # Czy kanał faktycznie coś popsuł?
+            if received != original:
+                corrupted_physically += 1
 
-            if decoded.is_corrupt():
-                detected_errors += 1
-            else:
-                undetected_errors += 1
+                decoded = Frame.from_bytes(received)
 
+                if decoded.is_corrupt():
+                    detected_errors += 1
+                else:
+                    undetected_errors += 1
+
+    # Statystyki
+    if corrupted_physically > 0:
+        detection_rate = detected_errors / corrupted_physically * 100
+        undetected_rate = undetected_errors / corrupted_physically * 100
+    else:
+        detection_rate = 100.0
+        undetected_rate = 0.0
+
+    reliability = (total_frames - corrupted_physically) / total_frames
+
+    # Wydruk
     print(f"Wysłane ramki:         {total_frames}")
     print(f"Uszkodzone fizycznie:  {corrupted_physically}")
     print(f"  -> Wykryte (CRC):    {detected_errors}")
     print(f"  -> NIEWYKRYTE:       {undetected_errors}")
-
-    if corrupted_physically > 0:
-        detection_rate = detected_errors / corrupted_physically * 100
-        undetected_rate = undetected_errors / corrupted_physically * 100
-        print(f"Skuteczność CRC:       {detection_rate:.4f}%")
-    else:
-        detection_rate = 100.0
-        undetected_rate = 0.0
+    print(f"Skuteczność CRC:       {detection_rate:.4f}%")
+    print(f"Niezawodność kanału:   {reliability:.4f}")
 
     return {
         "prob": prob,
@@ -69,14 +127,20 @@ def run_detection_test(iterations=10000, mode='BSC', prob=0.01):
         "detected": detected_errors,
         "undetected": undetected_errors,
         "detection_rate": detection_rate,
-        "undetected_rate": undetected_rate
+        "undetected_rate": undetected_rate,
+        "reliability": reliability
     }
 
 
-# =====================================================================
-#  TEST KOLIZJI CRC (szybki)
-# =====================================================================
-def run_crc_collision_hunt(iterations=1_000_000):
+# ───────────────────────────────────────────
+#   TEST TEORETYCZNY KOLIZJI CRC
+# ───────────────────────────────────────────
+def run_crc_collision_hunt(iterations=500000):
+    """
+    Teoretyczny test kolizji CRC.
+    Pokazuje, jak trudne jest niewykrycie błędu przez CRC-32 przy
+    losowych zmianach bajtów.
+    """
     print(f"\n--- TEST: CRC_COLLISION_HUNT | Próbek: {iterations:,} ---")
 
     payload = b"HELLO_WORLD_TEST"
@@ -87,6 +151,7 @@ def run_crc_collision_hunt(iterations=1_000_000):
     for _ in range(iterations):
         corrupted_bytes = bytearray(payload)
 
+        # losowo zmieniamy kilka bajtów
         for _ in range(random.randint(1, 3)):
             idx = random.randrange(len(corrupted_bytes))
             corrupted_bytes[idx] ^= random.randrange(1, 256)
@@ -108,72 +173,94 @@ def run_crc_collision_hunt(iterations=1_000_000):
     print(f"Skuteczność CRC:       {detection_rate:.4f}%")
 
     return {
-        "prob": "-",                   # brak p → w tabeli będzie "-"
+        "prob": "-",
         "frames": iterations,
         "corrupted": corrupted,
         "detected": detected,
         "undetected": undetected,
         "detection_rate": detection_rate,
-        "undetected_rate": undetected_rate
+        "undetected_rate": undetected_rate,
+        "reliability": 0.0  # nie dotyczy
     }
 
 
-# =====================================================================
-#  CSV EXPORT
-# =====================================================================
+# ───────────────────────────────────────────
+#   ZAPIS TABELI CSV
+# ───────────────────────────────────────────
 def save_results_csv(results, filename="crc_results.csv"):
+    """
+    Zapisuje dane: błędy fizyczne, wykryte, niewykryte, niezawodność kanału.
+    """
     filepath = os.path.join(OUTPUT_DIR, filename)
     with open(filepath, "w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["p", "frames", "corrupted", "detected", "undetected",
-                    "detection_rate (%)", "undetected_rate (%)"])
+        w.writerow([
+            "p",
+            "frames",
+            "corrupted",
+            "detected",
+            "undetected",
+            "detection_rate (%)",
+            "undetected_rate (%)",
+            "reliability"
+        ])
         for r in results:
             w.writerow([
                 r["prob"], r["frames"], r["corrupted"],
                 r["detected"], r["undetected"],
-                f"{r['detection_rate']:.4f}",
-                f"{r['undetected_rate']:.6f}"
+                f"{r['detection_rate']:.6f}",
+                f"{r['undetected_rate']:.6f}",
+                f"{r['reliability']:.6f}"
             ])
     print(f"\n[TABELA ZAPISANA] → {filepath}")
 
 
-
-# =====================================================================
-#  WYKRES
-# =====================================================================
+# ───────────────────────────────────────────
+#   WYKRES WYNIKÓW
+# ───────────────────────────────────────────
 def plot_results(results, filename="crc_plot.png"):
+    """
+    Rysuje 3 krzywe:
+      • % błędów wykrytych
+      • % błędów niewykrytych
+      • % ramek nieuszkodzonych (niezawodność kanału)
+    """
+    import matplotlib.pyplot as plt
+
     filepath = os.path.join(OUTPUT_DIR, filename)
 
-    xs = [r["prob"] for r in results]
-    ys_detect = [r["detection_rate"] for r in results]
-    ys_undetect = [r["undetected_rate"] for r in results]
+    xs = [r["prob"] for r in results if r["prob"] != "-"]
+    ys_detect = [r["detection_rate"] for r in results if r["prob"] != "-"]
+    ys_undetect = [r["undetected_rate"] for r in results if r["prob"] != "-"]
+    ys_reliability = [r["reliability"] * 100 for r in results if r["prob"] != "-"]
 
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(11, 6))
+
     plt.plot(xs, ys_detect, marker="o", label="Wykryte błędy (%)")
     plt.plot(xs, ys_undetect, marker="x", label="Niewykryte błędy (%)")
+    plt.plot(xs, ys_reliability, marker="s", label="Ramki nieuszkodzone (%)")
 
     plt.xscale("log")
     plt.xlabel("p (Prawdopodobieństwo błędu bitu)")
-    plt.ylabel("Procent błędów")
+    plt.ylabel("Wartość [%]")
     plt.grid(True)
     plt.legend()
-    plt.title("Skuteczność CRC-32 vs poziom szumu w kanale BSC")
+    plt.title("Analiza skuteczności CRC i niezawodności kanału (dane JPG)")
 
     plt.savefig(filepath)
     print(f"[WYKRES ZAPISANY] → {filepath}")
 
 
-
-# =====================================================================
-#  MAIN
-# =====================================================================
+# ───────────────────────────────────────────
+#   MAIN
+# ───────────────────────────────────────────
 if __name__ == "__main__":
-    print("Symulacja weryfikacji modelu błędów i skuteczności CRC-32")
+    print("Symulacja skuteczności CRC na danych obrazu")
 
-    results = []  # ← JEDYNA LISTA
+    results = []
 
-    # dodaj collision hunt DO tabeli
-    results.append(run_crc_collision_hunt(500_000))
+    # Teoretyczny test kolizji CRC
+    results.append(run_crc_collision_hunt(500000))
 
     probability_levels = [
         0.00001, 0.00003, 0.0001, 0.0003, 0.001,
@@ -182,8 +269,11 @@ if __name__ == "__main__":
     ]
 
     for p in probability_levels:
-        r = run_detection_test(iterations=5000, mode='BSC', prob=p)
-        results.append(r)
+        results.append(run_detection_test(
+            iterations=20,
+            mode='BSC',
+            prob=p
+        ))
 
     save_results_csv(results)
     plot_results(results)
