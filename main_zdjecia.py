@@ -17,7 +17,7 @@ from gui.live_preview import LivePreviewTk
 #   USTAWIENIA PLIKÓW
 # ───────────────────────────────────────────
 
-CHUNK_SIZE = 512
+CHUNK_SIZE = 2048
 SRC_FILE = "input/kot.jpg"
 DEST_FILE = "output/kot_copy.jpg"
 REFRESH_EVERY_CHUNKS = 1

@@ -107,7 +107,8 @@ class Sender:
         moved = 0
         while self.base != ack_num:
             print(
-                f"{Colors.GRAY}[NADAJNIK]: Otrzymano POPRAWNE ACK SN={ack_num}. Przesuwam BASE z {self.base} do {ack_num}.{Colors.RESET}")
+                f"{Colors.GRAY}[NADAJNIK]: Otrzymano POPRAWNE ACK SN={ack_num}. Przesuwam BASE z {self.base} do {ack_num}.{Colors.RESET}"
+            )
             self.buffer.pop(self.base, None)
             self.base = (self.base + 1) % self.max_seq
             moved += 1
@@ -116,7 +117,7 @@ class Sender:
             if self.base == self.next_seq_num:
                 self.stop_timer()
             else:
-                self.stop_timer()  # Timer musi liczyć czas dla nowej najstarszej ramki
+                self.stop_timer()
                 self.start_timer()
         return moved
 
@@ -128,17 +129,18 @@ class Sender:
         do ramki `base` i **ponownie wysłać wszystkie ramki** znajdujące się aktualnie
         w buforze (od `base` do `next_seq_num - 1`).
 
-        Metoda symuluje również natychmiastowy odbiór ewentualnych ACK, aby przyspieszyć symulację.
+        Zwraca LISTĘ retransmitowanych ramek (żeby dało się robić histogram transmisji).
         """
-        retransmitted_count = 0
+        frames_retx = []
         current_seq = self.base
 
         while current_seq != self.next_seq_num:
             frame = self.buffer.get(current_seq)
             if frame:
                 raw_bytes_out = self.send_frame(frame)
-                retransmitted_count += 1
+                frames_retx.append(frame)
 
+                # opcjonalnie: przyspieszenie symulacji przez natychmiastową obsługę ACK
                 ack_bytes = receiver.receive_frame(raw_bytes_out)
                 if ack_bytes is not None:
                     ack_frame = Frame.from_bytes(ack_bytes)
@@ -147,4 +149,4 @@ class Sender:
 
             current_seq = (current_seq + 1) % self.max_seq
 
-        return retransmitted_count
+        return frames_retx
