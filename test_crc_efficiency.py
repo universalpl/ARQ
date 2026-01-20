@@ -1,8 +1,8 @@
 # test_crc_efficiency.py
 import config
-from frame import Frame
-from channel import global_channel
-from colors import Colors
+from logika.frame import Frame
+from logika.channel import global_channel
+from logika.colors import Colors
 import struct
 
 
