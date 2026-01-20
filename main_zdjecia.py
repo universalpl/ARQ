@@ -12,7 +12,6 @@ import config
 
 from gui.live_preview import LivePreviewTk
 
-
 # ───────────────────────────────────────────
 #   USTAWIENIA PLIKÓW
 # ───────────────────────────────────────────
@@ -48,9 +47,9 @@ def _ensure_parent_dir(path):
 # ───────────────────────────────────────────
 
 def run_file_copy_over_gbn(
-    return_stats=False,
-    disable_gui=False,
-    chunk_size_override=None
+        return_stats=False,
+        disable_gui=False,
+        chunk_size_override=None
 ):
     global CHUNK_SIZE
 
@@ -98,8 +97,12 @@ def run_file_copy_over_gbn(
     total_transmissions = 0
     retransmissions = 0
 
-    # ───── HISTOGRAM: ile razy wysłano daną ramkę ─────
-    tx_count = {}   # seq_num -> count
+    # ───── HISTOGRAM (FIX) ─────
+    # Mapujemy ChunkIndex -> count
+    tx_count_by_chunk_idx = {}
+
+    # Pomocnicza mapa: seq_num -> chunk_idx
+    active_sn_mapping = {}
 
     print(
         f"\n{Colors.GRAY}"
@@ -121,7 +124,11 @@ def run_file_copy_over_gbn(
             frame_obj = sender.process_data(data)
 
             sn = frame_obj.seq_num
-            tx_count[sn] = tx_count.get(sn, 0) + 1
+
+            # 1. Przypisujemy SN do unikalnego indeksu danych
+            active_sn_mapping[sn] = sent_data_idx
+            # 2. Inicjujemy licznik
+            tx_count_by_chunk_idx[sent_data_idx] = 1
 
             raw_bytes_out = channel.channel_simulate(frame_obj.to_bytes())
 
@@ -139,7 +146,10 @@ def run_file_copy_over_gbn(
 
             for f in frames:
                 sn = f.seq_num
-                tx_count[sn] = tx_count.get(sn, 0) + 1
+                # Zliczamy retransmisję dla konkretnego kawałka danych
+                if sn in active_sn_mapping:
+                    chunk_idx = active_sn_mapping[sn]
+                    tx_count_by_chunk_idx[chunk_idx] += 1
 
             added = len(frames)
             total_transmissions += added
@@ -182,17 +192,23 @@ def run_file_copy_over_gbn(
         f"Wydajność: {efficiency:.2f}"
     )
 
-    # ───── BUDOWA HISTOGRAMU ─────
-    hist = {1: 0, 2: 0, 3: 0, 4: 0, "5+": 0}
+    # ───── BUDOWA HISTOGRAMU (ZAKRES 1..10+) ─────
 
-    for cnt in tx_count.values():
-        if cnt >= 5:
-            hist["5+"] += 1
+    # Inicjalizacja kubełków od 1 do 9
+    hist = {i: 0 for i in range(1, 10)}
+    hist["10+"] = 0
+
+    for cnt in tx_count_by_chunk_idx.values():
+        if cnt >= 10:
+            hist["10+"] += 1
         else:
             hist[cnt] += 1
 
+    # Lista etykiet w kolejności do wyświetlania/zapisu
+    sorted_keys = list(range(1, 10)) + ["10+"]
+
     print("\nHistogram liczby wysłań ramki:")
-    for k in [1, 2, 3, 4, "5+"]:
+    for k in sorted_keys:
         print(f"{k}: {hist[k]}")
 
     # ───── ZAPIS HISTOGRAMU DO output/ ─────
@@ -202,18 +218,19 @@ def run_file_copy_over_gbn(
     csv_path = os.path.join(OUTPUT_DIR, "histogram_transmisji.csv")
     with open(csv_path, "w") as f:
         f.write("liczba_wyslan,liczba_ramek\n")
-        for k in [1, 2, 3, 4, "5+"]:
+        for k in sorted_keys:
             f.write(f"{k},{hist[k]}\n")
 
     # Wykres
-    labels = ["1", "2", "3", "4", "5+"]
-    values = [hist[1], hist[2], hist[3], hist[4], hist["5+"]]
+    labels = [str(k) for k in sorted_keys]
+    values = [hist[k] for k in sorted_keys]
 
-    plt.figure()
-    plt.bar(labels, values)
-    plt.xlabel("Liczba wysłań ramki")
-    plt.ylabel("Liczba ramek")
+    plt.figure(figsize=(10, 6))  # Nieco szerszy wykres
+    bar_container = plt.bar(labels, values, color='skyblue', edgecolor='black')
+    plt.xlabel("Liczba wysłań danej ramki")
+    plt.ylabel("Liczba ramek (chunków)")
     plt.title("Histogram retransmisji ramek (GBN)")
+    plt.bar_label(bar_container)
     plt.tight_layout()
 
     plot_path = os.path.join(OUTPUT_DIR, "histogram_transmisji.png")
