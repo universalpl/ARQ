@@ -21,7 +21,8 @@ class TestGoBackN(unittest.TestCase):
         """Uruchamiane przed każdym testem."""
         print(f"\n[TEST]: {self._testMethodName}")
 
-    # --- TESTY RAMEK (FRAME) ---
+    ##################################################################################################################
+    #TESTY RAMEK
 
     def test_frame_serialization_clean(self):
         """Sprawdza, czy ramka po wysłaniu i odebraniu jest taka sama."""
@@ -42,7 +43,7 @@ class TestGoBackN(unittest.TestCase):
         frame = Frame('DATA', 1, "WazneDane")
         raw_bytes = bytearray(frame.to_bytes())
 
-        # Zmieniamy ostatni bajt (symulujemy błąd)
+        # Zmianaa ostatniego bajt (symulujemy błąd)
         raw_bytes[-1] = raw_bytes[-1] ^ 0xFF
 
         # Próbujemy otworzyć uszkodzoną ramkę
@@ -51,7 +52,8 @@ class TestGoBackN(unittest.TestCase):
         self.assertTrue(corrupt_frame.is_corrupt(), "CRC powinno wykryć zmianę bitów!")
         print("   -> CRC poprawnie wykryło uszkodzenie.")
 
-    # --- TESTY NADAJNIKA (SENDER) ---
+    ##################################################################################################################
+    #TESTY NADAJNIKA
 
     def test_sender_window_logic(self):
         """Sprawdza matematykę przesuwanego okna."""
@@ -81,7 +83,8 @@ class TestGoBackN(unittest.TestCase):
 
         print("   -> Logika okna na krawędzi (modulo) działa.")
 
-    # --- TESTY KANAŁU ---
+    ##################################################################################################################
+    #TESTY KANAŁU
 
     def test_channel_structure(self):
         """Sprawdza czy kanał nie gubi bajtów (niezależnie od błędów)."""
@@ -95,7 +98,8 @@ class TestGoBackN(unittest.TestCase):
 
         self.assertEqual(len(data), len(output), "Kanał nie powinien zmieniać długości danych!")
 
-    # --- NOWE TESTY ODBIORNIKA (RECEIVER) ---
+    ##################################################################################################################
+    #OWE TESTY ODBIORNIKA
 
     def test_receiver_out_of_order_logic(self):
         """Sprawdza, czy Odbiornik odrzuca ramki spoza kolejności (GBN)."""
@@ -124,14 +128,15 @@ class TestGoBackN(unittest.TestCase):
                          "Odbiornik NIE POWINIEN przesunąć okna po otrzymaniu SN=2, gdy czeka na 1!")
         print("   -> Odbiornik prawidłowo odrzuca pakiety spoza kolejności.")
 
-    # --- NOWE TESTY LOGIKI BUFORA (SENDER) ---
+    ##################################################################################################################
+    #NOWE TESTY LOGIKI BUFORA (SENDER)
 
     def test_sender_cumulative_ack(self):
         """Sprawdza, czy ACK czyści bufor nadajnika (zwolnienie pamięci)."""
         sender = Sender(window_size=4, max_seq=8)
         sender.base = 0
 
-        # 1. Symulujemy, że wysłaliśmy 3 pakiety (są w buforze)
+        #Symulujemy, że wysłaliśmy 3 pakiety (są w buforze)
         sender.buffer[0] = Frame('DATA', 0)
         sender.buffer[1] = Frame('DATA', 1)
         sender.buffer[2] = Frame('DATA', 2)
@@ -145,7 +150,8 @@ class TestGoBackN(unittest.TestCase):
 
         print("   -> Kumulacyjne ACK poprawnie czyści bufor.")
 
-    # --- TESTY STRUKTURY DANYCH ---
+    ##################################################################################################################
+    #TESTY STRUKTURY DANYCH
 
     def test_ack_frame_integrity(self):
         """Sprawdza, czy ramka typu ACK jest poprawnie rozróżniana od DATA."""

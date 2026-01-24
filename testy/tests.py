@@ -4,10 +4,7 @@ Moduł realizujący testy integracyjne (scenariuszowe).
 Uruchamia pełną symulację dla trzech zdefiniowanych scenariuszy pogodowych (Czyste niebo, Deszcz, Burza)
 i weryfikuje wydajność protokołu.
 """
-# ... reszta kodu bez zmian ...
 
-
-# tests.py
 import main
 import config
 from logika.colors import Colors
@@ -23,7 +20,7 @@ def run_tests():
     config.TARGET_PACKETS = 20
     YELLOW = Colors.FRAME_COLORS[2]
 
-    # --- SCENARIUSZ 1: CZYSTE NIEBO ---
+    #  SCENARIUSZ 1: CZYSTE NIEBO
     print(f"{YELLOW}SCENARIUSZ 1: Czyste Niebo (Idealny Kanał){Colors.RESET}")
     print("Parametry: P = 0.0, R = 1.0, K = 0.0 (Absolutny brak błędów)")
 
@@ -34,10 +31,10 @@ def run_tests():
 
     print(f"-> Wynik raportu: 1.00. Wynik testu: {eff1:.2f}\n")
 
-    # --- PRZYWRACAMY SZUM DLA RESZTY ---
+    #  PRZYWRACAMY SZUM DLA RESZTY
     config.GILBERT_K = original_k
 
-    # --- SCENARIUSZ 2: LEKKI DESZCZ ---
+    #  SCENARIUSZ 2: LEKKI DESZCZ
     print(f"{YELLOW}SCENARIUSZ 2: Lekki Deszcz (Realistyczny){Colors.RESET}")
     print("Parametry: P = 0.0003, R = 0.05")
 
@@ -45,7 +42,7 @@ def run_tests():
 
     print(f"-> Wynik raportu: ~0.85-0.95. Wynik testu: {eff2:.2f}\n")
 
-    # --- SCENARIUSZ 3: CIĘŻKA BURZA ---
+    # SCENARIUSZ 3: CIĘŻKA BURZA
     print(f"{YELLOW}SCENARIUSZ 3: Ciężka Burza (Ekstremalny){Colors.RESET}")
     print("Parametry: P = 0.001, R = 0.02")
 

@@ -10,9 +10,9 @@ import csv
 import base64
 
 
-# ───────────────────────────────────────────
+#########################################################
 #   KONFIGURACJA ŚCIEŻEK
-# ───────────────────────────────────────────
+
 
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "testy_output")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -27,15 +27,15 @@ SRC_FILE = os.path.join(
 CHUNK_SIZE = 512
 
 
-# ───────────────────────────────────────────
+#########################################################
 #   WCZYTYWANIE OBRAZU I DZIELENIE NA CHUNKI
-# ───────────────────────────────────────────
+
 def load_image_chunks():
     """
-    Wczytuje plik obrazu wykorzystywany w symulacji i dzieli go
-    na fragmenty po CHUNK_SIZE bajtów. Każdy fragment jest później
-    kodowany base64 — identycznie jak podczas transmisji w main_zdjecia.py.
-    """
+        Wczytuje plik obrazu wykorzystywany w symulacji i dzieli go
+        na fragmenty po CHUNK_SIZE bajtów. Każdy fragment jest później
+        kodowany base64 — identycznie jak podczas transmisji w main_zdjecia.py.
+        """
     with open(SRC_FILE, "rb") as f:
         raw = f.read()
 
@@ -48,9 +48,9 @@ def load_image_chunks():
     return chunks
 
 
-# ───────────────────────────────────────────
+#########################################################
 #   GŁÓWNY TEST DETEKCJI CRC NA REALNYCH DANYCH
-# ───────────────────────────────────────────
+
 def run_detection_test(iterations=20, mode='BSC', prob=0.01):
     """
     Testuje skuteczność algorytmu CRC-32 na rzeczywistych danych obrazu.
@@ -132,9 +132,9 @@ def run_detection_test(iterations=20, mode='BSC', prob=0.01):
     }
 
 
-# ───────────────────────────────────────────
+#########################################################
 #   TEST TEORETYCZNY KOLIZJI CRC
-# ───────────────────────────────────────────
+
 def run_crc_collision_hunt(iterations=500000):
     """
     Teoretyczny test kolizji CRC.
@@ -183,10 +183,9 @@ def run_crc_collision_hunt(iterations=500000):
         "reliability": 0.0  # nie dotyczy
     }
 
-
-# ───────────────────────────────────────────
+#########################################################
 #   ZAPIS TABELI CSV
-# ───────────────────────────────────────────
+
 def save_results_csv(results, filename="crc_results.csv"):
     """
     Zapisuje dane: błędy fizyczne, wykryte, niewykryte, niezawodność kanału.
@@ -251,9 +250,11 @@ def plot_results(results, filename="crc_plot.png"):
     print(f"[WYKRES ZAPISANY] → {filepath}")
 
 
-# ───────────────────────────────────────────
-#   MAIN
-# ───────────────────────────────────────────
+#########################################################
+#########################################################
+#########################################################
+
+
 if __name__ == "__main__":
     print("Symulacja skuteczności CRC na danych obrazu")
 

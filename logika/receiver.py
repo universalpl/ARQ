@@ -73,6 +73,7 @@ class Receiver:
         frame = Frame.from_bytes(raw_bytes)
         sn = frame.seq_num
 
+        #########################################################
         # 1. Sprawdzenie CRC - priorytetowa weryfikacja integralności
         if frame.is_corrupt():
             print(
@@ -83,6 +84,7 @@ class Receiver:
             print(f"{Colors.RED}[ODBIORNIK]: Powtarzam ACK SN={ack_sn} (po błędzie CRC w DATA).{Colors.RESET}")
             return channel_simulate(ack_frame.to_bytes())
 
+        #########################################################
         # 2. Sprawdzenie Kolejności (Logika "Sliding Window" rozmiar 1)
         if sn == self.expected_seq_num:
             # SUKCES: Ramka jest tą, na którą czekaliśmy

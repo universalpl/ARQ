@@ -44,15 +44,16 @@ class GilbertChannel:
                 original_bit = (byte_val >> bit_pos) & 1
                 current_bit = original_bit
 
-                # --- 1. LOGIKA GILBERTA (Maszyna Stanów) ---
+                #########################################################
+                #  1. LOGIKA GILBERTA (Maszyna Stanów)
                 if self.state == 'G':
                     if random.random() < config.GILBERT_P:
                         self.state = 'B'
                 else:  # self.state == 'B'
                     if random.random() < config.GILBERT_R:
                         self.state = 'G'
-
-                # --- 2. DECYZJA O BŁĘDZIE ---
+                #########################################################
+                #  2. DECYZJA O BŁĘDZIE
                 error_prob = config.GILBERT_K if self.state == 'G' else config.GILBERT_H
                 is_flipped = False
 
@@ -64,7 +65,8 @@ class GilbertChannel:
                 # Zapisz bit do nowego bajtu
                 new_byte_val |= (current_bit << bit_pos)
 
-                # --- 3. BUDOWANIE WIZUALIZACJI ---
+                #########################################################
+                #  3. BUDOWANIE WIZUALIZACJI
                 visual_input_str += str(original_bit)
 
                 if is_flipped:
@@ -79,6 +81,7 @@ class GilbertChannel:
 
             corrupted_data[i] = new_byte_val
 
+        #########################################################
         # --- WYPISYWANIE LOGÓW ---
         # Pokaż wizualizację tylko jeśli wystąpiły błędy, żeby nie spamować przy poprawnych
         if bit_errors_count > 0:

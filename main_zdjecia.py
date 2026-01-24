@@ -12,9 +12,8 @@ import config
 
 from gui.live_preview import LivePreviewTk
 
-# ───────────────────────────────────────────
+#########################################################
 #   USTAWIENIA PLIKÓW
-# ───────────────────────────────────────────
 
 CHUNK_SIZE = 2048
 SRC_FILE = "input/kot.jpg"
@@ -23,9 +22,8 @@ REFRESH_EVERY_CHUNKS = 1
 OUTPUT_DIR = "output/histogram"
 
 
-# ───────────────────────────────────────────
+#########################################################
 #   POMOCNICZE
-# ───────────────────────────────────────────
 
 def _read_file_chunks(path, chunk_size):
     with open(path, "rb") as f:
@@ -42,9 +40,8 @@ def _ensure_parent_dir(path):
         os.makedirs(d, exist_ok=True)
 
 
-# ───────────────────────────────────────────
+##################################################################################################################
 #   GŁÓWNA SYMULACJA
-# ───────────────────────────────────────────
 
 def run_file_copy_over_gbn(
         return_stats=False,
@@ -97,11 +94,15 @@ def run_file_copy_over_gbn(
     total_transmissions = 0
     retransmissions = 0
 
-    # ───── HISTOGRAM (FIX) ─────
-    # Mapujemy ChunkIndex -> count
+
+    ##################################################################################################################
+
+
+    #HISTOGRAM
+    # map ChunkIndex na count
     tx_count_by_chunk_idx = {}
 
-    # Pomocnicza mapa: seq_num -> chunk_idx
+    # pomocnicza mapa: seq_num - chunk_idx
     active_sn_mapping = {}
 
     print(
@@ -113,7 +114,9 @@ def run_file_copy_over_gbn(
 
     start_time = time.time()
 
-    # ───── PĘTLA GŁÓWNA ─────
+    ##################################################################################################################
+    #PĘTLA GŁÓWNA
+
     while len(receiver.received_payload) < total_chunks:
         time.sleep(0.001)
         ack_bytes_from_receiver = None
@@ -176,7 +179,8 @@ def run_file_copy_over_gbn(
             except Exception:
                 pass
 
-    # ───── PODSUMOWANIE ─────
+    ##################################################################################################################
+    #PODSUMOWANIE
     duration = time.time() - start_time
     flush_new_payloads()
 
@@ -192,7 +196,8 @@ def run_file_copy_over_gbn(
         f"Wydajność: {efficiency:.2f}"
     )
 
-    # ───── BUDOWA HISTOGRAMU (ZAKRES 1..10+) ─────
+    #########################################################
+    # BUDOWA HISTOGRAMU ZAKRES 1-10+
 
     # Inicjalizacja kubełków od 1 do 9
     hist = {i: 0 for i in range(1, 10)}
@@ -204,14 +209,15 @@ def run_file_copy_over_gbn(
         else:
             hist[cnt] += 1
 
-    # Lista etykiet w kolejności do wyświetlania/zapisu
+    # Lista etykiet w kolejności
     sorted_keys = list(range(1, 10)) + ["10+"]
 
     print("\nHistogram liczby wysłań ramki:")
     for k in sorted_keys:
         print(f"{k}: {hist[k]}")
 
-    # ───── ZAPIS HISTOGRAMU DO output/ ─────
+    #########################################################
+    # ZAPIS HISTOGRAMU DO output
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     # CSV
@@ -250,9 +256,9 @@ def run_file_copy_over_gbn(
         }
 
 
-# ───────────────────────────────────────────
+
+##################################################################################################################
 #   URUCHOMIENIE NORMALNE
-# ───────────────────────────────────────────
 
 if __name__ == "__main__":
     run_file_copy_over_gbn()

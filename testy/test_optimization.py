@@ -8,9 +8,8 @@ import config
 import main_zdjecia
 
 
-# ───────────────────────────────────────────
+##########################################################
 #   KONFIGURACJA EKSPERYMENTU
-# ───────────────────────────────────────────
 
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "optimization_output")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -30,15 +29,14 @@ CHANNEL_CONFIGS = [
 ]
 
 
-# ───────────────────────────────────────────
+#########################################################
 #   POJEDYNCZY TEST
-# ───────────────────────────────────────────
 def run_single_test(chunk_size, H, R):
     # Tymczasowa zmiana configa (TYLKO W RAM)
     config.GILBERT_H = H
     config.GILBERT_R = R
 
-    # Reload maina, żeby wciągnął nowe wartości
+    # Reload maina
     importlib.reload(main_zdjecia)
 
     start = time.time()
@@ -61,9 +59,9 @@ def run_single_test(chunk_size, H, R):
     }
 
 
-# ───────────────────────────────────────────
+##################################################################################################################
 #   URUCHOMIENIE 25 TESTÓW
-# ───────────────────────────────────────────
+
 def run_all_tests():
     results = []
     total = len(CHUNK_SIZES) * len(CHANNEL_CONFIGS)
@@ -88,9 +86,8 @@ def run_all_tests():
     return results
 
 
-# ───────────────────────────────────────────
+#########################################################
 #   ZAPIS CSV
-# ───────────────────────────────────────────
 def save_csv(results):
     with open(CSV_PATH, "w", newline="") as f:
         writer = csv.writer(f)
@@ -115,9 +112,9 @@ def save_csv(results):
     print(f"\n✅ CSV zapisany: {CSV_PATH}")
 
 
-# ───────────────────────────────────────────
+#########################################################
 #   WYKRESY
-# ───────────────────────────────────────────
+
 def plot_results(results):
     metrics = {
         "time_s": "Czas [s]",
@@ -152,9 +149,9 @@ def plot_results(results):
         print(f"📈 Wykres zapisany: {out}")
 
 
-# ───────────────────────────────────────────
+#########################################################
 #   MAIN
-# ───────────────────────────────────────────
+
 if __name__ == "__main__":
     print("=== TESTY OPTYMALIZACYJNE (25 KONFIGURACJI) ===")
 

@@ -73,14 +73,15 @@ class Frame:
                 frame.corrupt_flag = True
                 return frame
 
-            # 1. Wyciągnij CRC (pierwsze 4 bajty)
+
+            # 1. wyciagniecie CRC (pierwsze 4 bajty)
             received_crc = struct.unpack('!I', data[:4])[0]
             content = data[4:]
 
-            # 2. Oblicz CRC ponownie z danych
+            # 2. Obliczenie CRC ponownie z danych
             calculated_crc = zlib.crc32(content)
 
-            # 3. Weryfikacja integralności
+            # 3. weryfikacja integralności
             if received_crc != calculated_crc:
                 frame.corrupt_flag = True
                 # Próba odzyskania SN dla logów (może być śmieciem)
@@ -90,7 +91,7 @@ class Frame:
                     pass
                 return frame
 
-            # 4. Rozpakowanie poprawnej ramki
+            # 4. rozpakowanie poprawnej ramki
             seq_num, type_code, sender_b, receiver_b = struct.unpack('!BBcc', content[:4])
             payload_bytes = content[4:]
 

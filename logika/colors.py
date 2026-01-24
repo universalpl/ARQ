@@ -21,7 +21,7 @@ class Colors:
 
     GRAY = "\033[90m"
     RED = "\033[91m"
-    MAGENTA = "\033[95m"  # <--- Fioletowy dla wiązki w modelu Gilberta
+    MAGENTA = "\033[95m"  # <fioletowy dla wiązki w modelu gilberta
 
     @staticmethod
     def for_sn(sn):
