@@ -18,9 +18,9 @@ from gui.live_preview import LivePreviewTk
 
 CHUNK_SIZE = 2048
 SRC_FILE = "input/kot.jpg"
-DEST_FILE = "output/kot_copy.jpg"
+DEST_FILE = "output/zdjecie/kot_copy.jpg"
 REFRESH_EVERY_CHUNKS = 1
-OUTPUT_DIR = "output"
+OUTPUT_DIR = "output/histogram"
 
 
 # ───────────────────────────────────────────
