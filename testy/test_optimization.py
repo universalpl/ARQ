@@ -11,7 +11,7 @@ import main_zdjecia
 ##########################################################
 #   KONFIGURACJA EKSPERYMENTU
 
-OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "optimization_output")
+OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "optimization_output/10")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 CSV_PATH = os.path.join(OUTPUT_DIR, "optimization_results.csv")
@@ -32,7 +32,7 @@ CHANNEL_CONFIGS = [
 #########################################################
 #   POJEDYNCZY TEST
 def run_single_test(chunk_size, H, R):
-    # Tymczasowa zmiana configa (TYLKO W RAM)
+    # Tymczasowa zmiana configa
     config.GILBERT_H = H
     config.GILBERT_R = R
 
