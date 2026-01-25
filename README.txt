@@ -1,41 +1,103 @@
 ========================================================================
-INSTRUKCJA URUCHOMIENIA PROJEKTU (Go-Back-N ARQ Simulation)
+1. WYMAGANIA
+
+Wymagane biblioteki zewnętrzne:
+- matplotlib
+- pillow (PIL)
+
+Instalacja:
+pip install matplotlib pillow
+
+Pozostałe biblioteki (time, random, csv, zlib, base64, struct, tkinter)
+
+
 ========================================================================
+2. STRUKTURA PROJEKTU
 
-1. INSTALACJA WYMAGANYCH BIBLIOTEK
-------------------------------------------------------------------------
-Otwórz terminal w folderze projektu i wpisz:
+gui/
+  live_preview.py
+    -> podgląd progresywnego odtwarzania obrazu JPG w trakcie transmisji
 
-pip install sphinx sphinx-rtd-theme colorama
+input/
+  kot.jpg
+    -> obraz wejściowy przesyłany przez protokół Go-Back-N
+
+logika/
+  frame.py
+    -> definicja ramki (DATA / ACK), serializacja, CRC32
+  channel.py
+    -> symulator kanału (BSC oraz Gilbert–Elliott)
+  sender.py
+    -> nadajnik Go-Back-N (okno przesuwne, timeout, retransmisje)
+  receiver.py
+    -> odbiornik Go-Back-N (CRC, kolejność, duplicate ACK)
+  colors.py
+    -> kolory logów konsolowych
+
+testy/
+  unit_tests.py
+    -> testy jednostkowe komponentów (frame, sender, receiver, channel)
+  tests.py
+    -> testy scenariuszowe (idealny kanał, lekki błąd, ciężkie zakłócenia)
+  test_crc_efficiency.py
+    -> testy skuteczności CRC32 na danych obrazu + wykres + CSV
+  test_optimization.py
+    -> testy optymalizacyjne (różne chunk size, różne parametry kanału)
+  test_optimization_average.py
+    -> uśrednianie wyników z wielu przebiegów
+
+testy/optimization_output/
+  -> wyniki testów optymalizacyjnych (CSV + wykresy)
+
+output/
+  histogram/
+    -> histogram retransmisji
+
+zdjecie/
+  kot_copy.jpg
+    -> obraz wynikowy po zakończeniu transmisji
+
+config.py
+  -> centralna konfiguracja: timeout, parametry kanału, okno GBN
+
+main_zdjecia.py
+  -> główna symulacja: kopiowanie obrazu przez Go-Back-N
+
+README.txt
+  -> niniejszy plik
 
 
-2. URUCHAMIANIE PROGRAMU
-------------------------------------------------------------------------
-Masz do wyboru trzy tryby pracy:
+================================================================================================================================================
+3. URUCHAMIANIE PROGRAMU
 
-A) Standardowa symulacja (parametry z pliku config.py):
-   python main.py
+A) GŁÓWNA SYMULACJA:
+python main_zdjecia.py
 
-B) Testy Scenariuszowe (Czyste Niebo / Deszcz / Burza - do sprawozdania):
-   python tests.py
+- obraz wejściowy: input/kot.jpg
+- obraz wynikowy: zdjecie/kot_copy.jpg
 
-C) Testy Jednostkowe (sprawdzenie poprawności funkcji CRC, okna itp.):
-   python unit_tests.py
+B) TESTY JEDNOSTKOWE:
+python testy/unit_tests.py
 
 
-3. GENEROWANIE DOKUMENTACJI TECHNICZNEJ (HTML)
-------------------------------------------------------------------------
-Aby wygenerować stronę z dokumentacją kodu, wykonaj te kroki w terminalu
-(będąc w głównym folderze projektu):
+C) TESTY SCENARIUSZOWE:
+python testy/tests.py
 
-KROK 1: Zaktualizuj pliki źródłowe dokumentacji
-   sphinx-apidoc -o docs . -f
 
-KROK 2: Zbuduj stronę HTML
-   cd docs
-   .\make.bat html
-   cd ..
+D) TESTY SKUTECZNOŚCI CRC:
+python testy/test_crc_efficiency.py
+-test CRC32 na rzeczywistych danych obrazu JPG
+-wyniki: testy/testy_output
 
-KROK 3: Otwórz wynik
-   Wejdź do folderu: docs/_build/html
-   Otwórz plik: index.html
+E) TESTY OPTYMALIZACYJNE:
+------------------------------------------------------------
+python testy/test_optimization.py
+
+- 25 konfiguracji (chunk size × parametry kanału)
+- pełne uruchomienia symulacji
+-wyniki: testy/optimization_output po koleji od 1-10
+
+python testy/test_optimization_average.py
+-wyniki: testy/optimization_output/average
+
+========================================================================
