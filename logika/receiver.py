@@ -1,7 +1,7 @@
 from logika.frame import Frame
 from logika.channel import channel_simulate
 from logika.colors import Colors
-
+import config
 
 class Receiver:
     """
@@ -36,6 +36,8 @@ class Receiver:
         self.sender = sender_id
         self.receiver = receiver_id
         self.received_payload = []
+        # NOWE: Licznik ramek odebranych poprawnie, ale jeszcze niepotwierdzonych
+        self.pending_ack_count = 0
 
     def _ack_color_for_data_sn(self, ack_sn: int):
         """
@@ -73,39 +75,52 @@ class Receiver:
         frame = Frame.from_bytes(raw_bytes)
         sn = frame.seq_num
 
-        #########################################################
-        # 1. Sprawdzenie CRC - priorytetowa weryfikacja integralności
+        # ---------------------------------------------------------
+        # SCENARIUSZ A: BŁĄD (CRC lub Kolejność) -> ACK NATYCHMIAST
+        # ---------------------------------------------------------
+        # Jeśli coś jest nie tak, nie czekamy! Nadajnik musi wiedzieć o błędzie od razu.
+        is_error = False
+
         if frame.is_corrupt():
+            print(f"{Colors.RED}[ODBIORNIK]: Błąd CRC w ramce.{Colors.RESET}")
+            is_error = True
+        elif sn != self.expected_seq_num:
             print(
-                f"{Colors.RED}[ODBIORNIK]: Otrzymano USZKODZONĄ ramkę DATA SN={sn} (Błąd CRC). ODRZUCAM.{Colors.RESET}")
-            # Wysłanie duplikatu ACK (Duplicate ACK) informuje nadawcę, że coś poszło nie tak
+                f"{Colors.for_sn(sn)}[ODBIORNIK]: Ramka poza kolejnością (SN={sn}, oczekiwano {self.expected_seq_num}).{Colors.RESET}")
+            is_error = True
+
+        if is_error:
+            # Zerujemy licznik, bo wysyłamy ACK (który i tak potwierdzi wszystko co było wcześniej)
+            self.pending_ack_count = 0
+
             ack_sn = self.expected_seq_num
             ack_frame = Frame('ACK', ack_sn, sender_id=self.sender, receiver_id=self.receiver)
-            print(f"{Colors.RED}[ODBIORNIK]: Powtarzam ACK SN={ack_sn} (po błędzie CRC w DATA).{Colors.RESET}")
             return channel_simulate(ack_frame.to_bytes())
 
-        #########################################################
-        # 2. Sprawdzenie Kolejności (Logika "Sliding Window" rozmiar 1)
-        if sn == self.expected_seq_num:
-            # SUKCES: Ramka jest tą, na którą czekaliśmy
-            print(f"{Colors.for_sn(sn)}[ODBIORNIK]: Otrzymano POPRAWNĄ i OCZEKIWANĄ ramkę DATA SN={sn}.{Colors.RESET}")
-            self.received_payload.append(frame.payload)
-            self.expected_seq_num = (self.expected_seq_num + 1) % self.max_seq
+        # ---------------------------------------------------------
+        # SCENARIUSZ B: SUKCES -> ACK OPÓŹNIONE (Delayed ACK)
+        # ---------------------------------------------------------
+        # Ramka jest poprawna i oczekiwana
+        self.received_payload.append(frame.payload)
+        self.expected_seq_num = (self.expected_seq_num + 1) % self.max_seq
 
-            # Wysłanie ACK dla NASTĘPNEGO oczekiwanego numeru (Next Expected)
+        # Zwiększamy licznik ramek "do potwierdzenia"
+        self.pending_ack_count += 1
+
+        print(
+            f"{Colors.for_sn(sn)}[ODBIORNIK]: Odebrano SN={sn}. Oczekuję na ACK ({self.pending_ack_count}/{config.ACK_FREQUENCY}).{Colors.RESET}")
+
+        # Sprawdzamy, czy uzbieraliśmy już wystarczająco dużo ramek, żeby wysłać ACK
+        if self.pending_ack_count >= config.ACK_FREQUENCY:
+            # Wysyłamy zbiorcze potwierdzenie
             ack_sn = self.expected_seq_num
-            ack_frame = Frame('ACK', ack_sn, sender_id=self.sender, receiver_id=self.receiver)
-            print(f"{self._ack_color_for_data_sn(ack_sn)}[ODBIORNIK]: Wysyłam ACK SN={ack_sn}{Colors.RESET}")
-            return channel_simulate(ack_frame.to_bytes())
+            print(
+                f"{Colors.for_sn(ack_sn)}[ODBIORNIK]: Limit osiągnięty. Wysyłam ZBIORCZE ACK SN={ack_sn}{Colors.RESET}")
 
+            self.pending_ack_count = 0  # Reset licznika
+
+            ack_frame = Frame('ACK', ack_sn, sender_id=self.sender, receiver_id=self.receiver)
+            return channel_simulate(ack_frame.to_bytes())
         else:
-            # BŁĄD KOLEJNOŚCI: Ramka z przyszłości lub duplikat starej
-            print(
-                f"{Colors.for_sn(sn)}[ODBIORNIK]: Otrzymano ramkę DATA SN={sn} poza kolejnością. "
-                f"Oczekiwano SN={self.expected_seq_num}. ODRZUCAM.{Colors.RESET}"
-            )
-            # Ponowne wysłanie ACK dla oczekiwanego numeru (wymuszenie retransmisji u nadawcy)
-            ack_sn = self.expected_seq_num
-            ack_frame = Frame('ACK', ack_sn, sender_id=self.sender, receiver_id=self.receiver)
-            print(f"{Colors.GRAY}[ODBIORNIK]: Powtarzam ACK SN={ack_sn} (by wrócił do Base={ack_sn}).{Colors.RESET}")
-            return channel_simulate(ack_frame.to_bytes())
+            # Nie wysyłamy nic (oszczędzamy pasmo w kanale zwrotnym)
+            return None
